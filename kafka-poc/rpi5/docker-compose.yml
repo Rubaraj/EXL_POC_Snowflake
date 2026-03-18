@@ -1,0 +1,65 @@
+services:
+
+  # ============================================
+  # MongoDB 7.0 (Replica Set for Change Streams)
+  # ============================================
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts:/scripts
+    networks:
+      - poc-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # MongoDB Replica Set Initializer (runs once)
+  # ============================================
+  mongo-init:
+    image: mongo:7.0
+    container_name: mongo-init
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/scripts
+    entrypoint: ["mongosh", "--host", "mongodb:27017", "--file", "/scripts/init-replica.js"]
+    networks:
+      - poc-network
+
+  # ============================================
+  # Kafka Connect (MongoDB Source Connector)
+  # ============================================
+  kafka-connect-source:
+    image: apache/kafka:3.8.1
+    container_name: kafka-connect-source
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    command: >
+      /opt/kafka/bin/connect-standalone.sh
+      /opt/kafka/config/connect-standalone-source.properties
+      /opt/kafka/config/mongodb-source-connector.properties
+    volumes:
+      - ./config/connect-standalone-source.properties:/opt/kafka/config/connect-standalone-source.properties
+      - ./config/mongodb-source-connector.properties:/opt/kafka/config/mongodb-source-connector.properties
+      - ./connect-plugins:/opt/kafka/plugins
+    networks:
+      - poc-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  poc-network:
+    driver: bridge

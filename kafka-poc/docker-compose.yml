@@ -1,0 +1,83 @@
+services:
+
+  # ============================================
+  # Kafka Broker (KRaft mode - no Zookeeper)
+  # Official Apache Kafka image
+  # ============================================
+  kafka:
+    image: apache/kafka:3.8.1
+    container_name: kafka
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      # KRaft settings
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+
+      # Listener settings
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://192.168.0.113:9094
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+
+      # Single-broker overrides (defaults expect 3 brokers)
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+
+      # Cluster
+      - CLUSTER_ID=poc-kafka-cluster-00001
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - poc-network
+
+  # ============================================
+  # Kafka Connect (Snowflake Sink)
+  # ============================================
+  kafka-connect-sink:
+    image: apache/kafka:3.8.1
+    container_name: kafka-connect-sink
+    depends_on:
+      - kafka
+    ports:
+      - "8084:8084"
+    command: >
+      /opt/kafka/bin/connect-standalone.sh
+      /opt/kafka/config/connect-standalone-sink.properties
+      /opt/kafka/config/snowflake-sink-connector.properties
+    volumes:
+      - ./config/connect-standalone-sink.properties:/opt/kafka/config/connect-standalone-sink.properties
+      - ./config/snowflake-sink-connector.properties:/opt/kafka/config/snowflake-sink-connector.properties
+      - ./connect-plugins:/opt/kafka/plugins
+      - ./snowflake-keys:/opt/kafka/snowflake-keys
+    networks:
+      - poc-network
+
+  # ============================================
+  # Kafka UI (monitoring dashboard)
+  # ============================================
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=POC-Cluster
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME=SnowflakeSink
+      - KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS=http://kafka-connect-sink:8084
+    networks:
+      - poc-network
+
+volumes:
+  kafka_data:
+
+networks:
+  poc-network:
+    driver: bridge

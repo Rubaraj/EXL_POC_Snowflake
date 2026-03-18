@@ -1,0 +1,17 @@
+HW001
+
+hw001admin
+admin001hw
+
+
+192.168.0.175
+
+
+
+
+
+pi001admin
+	
+
+
+https://app.snowflake.com/swymwjs/ih56791/#/homepage
