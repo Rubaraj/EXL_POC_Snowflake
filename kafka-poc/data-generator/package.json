@@ -1,0 +1,16 @@
+{
+  "name": "thinkagent-data-generator",
+  "version": "1.0.0",
+  "description": "Generate ~1M+ ThinkAgent documents across 21 MongoDB collections for Snowflake dashboard POC",
+  "main": "index.js",
+  "scripts": {
+    "generate": "node index.js",
+    "generate:small": "node index.js --scale=0.01",
+    "generate:medium": "node index.js --scale=0.1"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^9.0.0",
+    "mongodb": "^6.0.0",
+    "uuid": "^10.0.0"
+  }
+}
